@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+
+{% block title %}Diff Viewer{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Header -->
+    <div class="flex items-center justify-between">
+        <h1 class="text-2xl font-bold text-slate-800">Output Diff Viewer</h1>
+        <span class="text-sm text-slate-500">Compare pipeline outputs between runs</span>
+    </div>
+
+    <!-- Selection Form -->
+    <div class="bg-white rounded-lg border border-slate-200 shadow-sm p-4">
+        <form method="GET" action="/dashboard/diff" class="flex flex-wrap items-end gap-4">
+            <div class="flex-1 min-w-48">
+                <label class="block text-sm text-slate-500 mb-1">Job 1 (Base)</label>
+                <select name="job1" class="w-full bg-white border border-slate-200 rounded-md px-3 py-2 text-sm text-slate-700">
+                    <option value="">Select job...</option>
+                    {% for job in recent_jobs %}
+                    <option value="{{ job.id }}" {% if job1_id == job.id %}selected{% endif %}>
+                        {{ job.id[:8] }}... - {{ job.input_filename[:30] if job.input_filename else 'N/A' }} ({{ job.status }})
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="flex-1 min-w-48">
+                <label class="block text-sm text-slate-500 mb-1">Job 2 (Compare)</label>
+                <select name="job2" class="w-full bg-white border border-slate-200 rounded-md px-3 py-2 text-sm text-slate-700">
+                    <option value="">Select job...</option>
+                    {% for job in recent_jobs %}
+                    <option value="{{ job.id }}" {% if job2_id == job.id %}selected{% endif %}>
+                        {{ job.id[:8] }}... - {{ job.input_filename[:30] if job.input_filename else 'N/A' }} ({{ job.status }})
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="w-32">
+                <label class="block text-sm text-slate-500 mb-1">Stage</label>
+                <select name="stage" class="w-full bg-white border border-slate-200 rounded-md px-3 py-2 text-sm text-slate-700">
+                    <option value="bronze" {% if stage == 'bronze' %}selected{% endif %}>Bronze</option>
+                    <option value="silver" {% if stage == 'silver' %}selected{% endif %}>Silver</option>
+                </select>
+            </div>
+            <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+                Compare
+            </button>
+        </form>
+    </div>
+
+    {% if comparison %}
+        {% if comparison.error %}
+        <!-- Error -->
+        <div class="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
+            {{ comparison.error }}
+        </div>
+        {% else %}
+        <!-- Diff Summary -->
+        <div class="bg-white rounded-lg border border-slate-200 shadow-sm p-4">
+            <div class="flex items-center justify-between">
+                <h2 class="font-semibold text-slate-800">Diff Summary: {{ comparison.stage|title }}</h2>
+                <div class="flex items-center space-x-4 text-sm">
+                    <span class="text-green-600">+{{ comparison.summary.added }} added</span>
+                    <span class="text-red-600">-{{ comparison.summary.removed }} removed</span>
+                    <span class="text-yellow-600">~{{ comparison.summary.modified }} modified</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Side by Side Comparison -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <!-- Job 1 -->
+            <div class="bg-white rounded-lg border border-slate-200 shadow-sm">
+                <div class="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
+                    <h3 class="font-semibold text-slate-800">Job 1: {{ comparison.job1_id[:8] }}...</h3>
+                    <a href="/dashboard/jobs/{{ comparison.job1_id }}" class="text-xs text-blue-600 hover:underline">View</a>
+                </div>
+                <div class="p-4 max-h-[600px] overflow-auto">
+                    <pre class="json text-xs">{{ comparison.json1|tojson(indent=2) }}</pre>
+                </div>
+            </div>
+
+            <!-- Job 2 -->
+            <div class="bg-white rounded-lg border border-slate-200 shadow-sm">
+                <div class="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
+                    <h3 class="font-semibold text-slate-800">Job 2: {{ comparison.job2_id[:8] }}...</h3>
+                    <a href="/dashboard/jobs/{{ comparison.job2_id }}" class="text-xs text-blue-600 hover:underline">View</a>
+                </div>
+                <div class="p-4 max-h-[600px] overflow-auto">
+                    <pre class="json text-xs">{{ comparison.json2|tojson(indent=2) }}</pre>
+                </div>
+            </div>
+        </div>
+
+        <!-- Detailed Diffs -->
+        {% if comparison.diffs %}
+        <div class="bg-white rounded-lg border border-slate-200 shadow-sm">
+            <div class="px-4 py-3 border-b border-slate-200">
+                <h2 class="font-semibold text-slate-800">Differences ({{ comparison.diffs|length }} changes)</h2>
+            </div>
+            <div class="max-h-96 overflow-y-auto divide-y divide-slate-100">
+                {% for diff in comparison.diffs[:50] %}
+                <div class="px-4 py-3 text-sm">
+                    <div class="flex items-center space-x-2">
+                        <span class="px-2 py-0.5 rounded text-xs font-medium
+                            {% if diff.type == 'added' %}bg-green-100 text-green-700
+                            {% elif diff.type == 'removed' %}bg-red-100 text-red-700
+                            {% else %}bg-yellow-100 text-yellow-700{% endif %}">
+                            {{ diff.type|upper }}
+                        </span>
+                        <code class="text-slate-700">{{ diff.path }}</code>
+                    </div>
+                    {% if diff.type == 'added' %}
+                    <div class="mt-2 p-2 bg-green-50 rounded text-xs">
+                        <pre class="text-green-700 whitespace-pre-wrap">{{ diff.new_value|tojson(indent=2) if diff.new_value is mapping else diff.new_value }}</pre>
+                    </div>
+                    {% elif diff.type == 'removed' %}
+                    <div class="mt-2 p-2 bg-red-50 rounded text-xs">
+                        <pre class="text-red-700 whitespace-pre-wrap">{{ diff.old_value|tojson(indent=2) if diff.old_value is mapping else diff.old_value }}</pre>
+                    </div>
+                    {% else %}
+                    <div class="mt-2 grid grid-cols-2 gap-2 text-xs">
+                        <div class="p-2 bg-red-50 rounded">
+                            <span class="text-slate-500">Old:</span>
+                            <pre class="text-red-700 whitespace-pre-wrap mt-1">{{ diff.old_value|tojson(indent=2) if diff.old_value is mapping else diff.old_value }}</pre>
+                        </div>
+                        <div class="p-2 bg-green-50 rounded">
+                            <span class="text-slate-500">New:</span>
+                            <pre class="text-green-700 whitespace-pre-wrap mt-1">{{ diff.new_value|tojson(indent=2) if diff.new_value is mapping else diff.new_value }}</pre>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+                {% if comparison.diffs|length > 50 %}
+                <div class="px-4 py-3 text-center text-slate-400">
+                    Showing first 50 of {{ comparison.diffs|length }} differences
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+        {% endif %}
+    {% else %}
+    <!-- No comparison selected -->
+    <div class="bg-white rounded-lg border border-slate-200 shadow-sm p-8 text-center">
+        <svg class="w-16 h-16 mx-auto text-slate-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"/>
+        </svg>
+        <h3 class="text-lg font-medium text-slate-700 mb-2">Select Jobs to Compare</h3>
+        <p class="text-slate-500">Choose two jobs and a stage to see a side-by-side comparison of their outputs.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

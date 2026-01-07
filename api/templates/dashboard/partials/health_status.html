@@ -1,0 +1,26 @@
+<div class="p-4 space-y-3">
+    {% for check_name, check in health.checks.items() %}
+    <div class="flex items-center justify-between text-sm">
+        <span class="text-slate-500 capitalize">{{ check_name|replace('_', ' ') }}</span>
+        <span class="flex items-center space-x-2">
+            {% if check.status == 'ok' %}
+            <span class="w-2 h-2 rounded-full bg-green-500"></span>
+            <span class="text-green-600">OK</span>
+            {% elif check.status == 'warning' %}
+            <span class="w-2 h-2 rounded-full bg-yellow-500"></span>
+            <span class="text-yellow-600">Warning</span>
+            {% elif check.status == 'error' %}
+            <span class="w-2 h-2 rounded-full bg-red-500"></span>
+            <span class="text-red-600">Error</span>
+            {% else %}
+            <span class="w-2 h-2 rounded-full bg-gray-400"></span>
+            <span class="text-gray-500">Info</span>
+            {% endif %}
+        </span>
+    </div>
+    {% endfor %}
+
+    <div class="pt-2 border-t border-slate-200 text-xs text-slate-400">
+        Last checked: {{ health.timestamp }}
+    </div>
+</div>

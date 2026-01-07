@@ -1,0 +1,100 @@
+<div class="p-6">
+    <!-- Lineage Flow Visualization -->
+    <div class="flex items-center justify-center space-x-4 overflow-x-auto pb-4">
+        <!-- Input -->
+        <div class="lineage-node {% if lineage %}completed{% endif %} min-w-32">
+            <div class="text-xs text-slate-500 mb-1">INPUT</div>
+            <div class="text-sm font-medium text-slate-700">{{ job.input_filename[:20] if job.input_filename else 'File' }}...</div>
+            {% if lineage and lineage.input_file_hash %}
+            <div class="text-xs text-slate-400 mt-1 font-mono">{{ lineage.input_file_hash[:8] }}...</div>
+            {% endif %}
+        </div>
+
+        <div class="lineage-arrow text-2xl">→</div>
+
+        <!-- Bronze -->
+        <div class="lineage-node {% if lineage and lineage.bronze.record_count %}completed{% elif job.status == 'stage1' %}active{% endif %} min-w-32">
+            <div class="text-xs text-slate-500 mb-1">BRONZE</div>
+            <div class="text-sm font-medium text-slate-700">Extract</div>
+            {% if lineage and lineage.bronze.record_count %}
+            <div class="text-xs text-green-600 mt-1">{{ lineage.bronze.record_count }} records</div>
+            {% elif job.status == 'stage1' %}
+            <div class="text-xs text-blue-600 mt-1">Processing...</div>
+            {% else %}
+            <div class="text-xs text-slate-400 mt-1">Pending</div>
+            {% endif %}
+        </div>
+
+        <div class="lineage-arrow text-2xl">→</div>
+
+        <!-- LLM -->
+        <div class="lineage-node {% if lineage and lineage.silver.systems_count %}completed{% elif job.status == 'stage2' %}active{% endif %} min-w-32">
+            <div class="text-xs text-slate-500 mb-1">LLM</div>
+            <div class="text-sm font-medium text-slate-700">Transform</div>
+            {% if lineage and lineage.llm_calls %}
+            <div class="text-xs text-purple-600 mt-1">{{ lineage.llm_calls|length }} calls</div>
+            {% elif job.status == 'stage2' %}
+            <div class="text-xs text-blue-600 mt-1">Processing...</div>
+            {% else %}
+            <div class="text-xs text-slate-400 mt-1">Pending</div>
+            {% endif %}
+        </div>
+
+        <div class="lineage-arrow text-2xl">→</div>
+
+        <!-- Silver -->
+        <div class="lineage-node {% if lineage and lineage.silver.systems_count %}completed{% elif job.status == 'stage2' %}active{% endif %} min-w-32">
+            <div class="text-xs text-slate-500 mb-1">SILVER</div>
+            <div class="text-sm font-medium text-slate-700">Standardize</div>
+            {% if lineage and lineage.silver.systems_count %}
+            <div class="text-xs text-green-600 mt-1">{{ lineage.silver.systems_count }} systems</div>
+            {% elif job.status == 'stage2' %}
+            <div class="text-xs text-blue-600 mt-1">Processing...</div>
+            {% else %}
+            <div class="text-xs text-slate-400 mt-1">Pending</div>
+            {% endif %}
+        </div>
+
+        <div class="lineage-arrow text-2xl">→</div>
+
+        <!-- Gold -->
+        <div class="lineage-node {% if lineage and lineage.gold.row_count %}completed{% elif job.status == 'stage3' %}active{% endif %} min-w-32">
+            <div class="text-xs text-slate-500 mb-1">GOLD</div>
+            <div class="text-sm font-medium text-slate-700">Costbook</div>
+            {% if lineage and lineage.gold.row_count %}
+            <div class="text-xs text-green-600 mt-1">{{ lineage.gold.row_count }} rows</div>
+            {% elif job.status == 'stage3' %}
+            <div class="text-xs text-blue-600 mt-1">Processing...</div>
+            {% else %}
+            <div class="text-xs text-slate-400 mt-1">Pending</div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Lineage Details -->
+    {% if lineage %}
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 pt-4 border-t border-slate-200 text-xs">
+        <div>
+            <span class="text-slate-500">Bronze Path</span>
+            <div class="font-mono text-slate-600 truncate">{{ lineage.bronze.output_path or '--' }}</div>
+        </div>
+        <div>
+            <span class="text-slate-500">Silver Path</span>
+            <div class="font-mono text-slate-600 truncate">{{ lineage.silver.output_path or '--' }}</div>
+        </div>
+        <div>
+            <span class="text-slate-500">Gold Path</span>
+            <div class="font-mono text-slate-600 truncate">{{ lineage.gold.output_path or '--' }}</div>
+        </div>
+        <div>
+            <span class="text-slate-500">LangWatch Trace</span>
+            {% if lineage.langwatch_trace_id %}
+            <a href="https://app.langwatch.ai/traces/{{ lineage.langwatch_trace_id }}" target="_blank"
+               class="text-purple-600 hover:underline block truncate">{{ lineage.langwatch_trace_id }}</a>
+            {% else %}
+            <div class="text-slate-400">--</div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+</div>

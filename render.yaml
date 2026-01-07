@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: hvac-etl-dashboard
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: DATABASE_URL
+        value: sqlite:///./data/jobs.db
+      - key: LANGWATCH_ENABLED
+        value: "false"
+      - key: PYTHONUNBUFFERED
+        value: "1"

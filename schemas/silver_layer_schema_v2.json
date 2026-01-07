@@ -1,0 +1,491 @@
+{
+  "version": "2.0",
+  "description": "Silver layer schema - Nested, system-focused HVAC data structure. Designed for LLM transformation from bronze layer JSON.",
+  "last_updated": "2024-12-08",
+
+  "schema_structure": {
+    "root": {
+      "type": "object",
+      "properties": {
+        "systems": {
+          "type": "array",
+          "description": "Array of HVAC systems, each containing system-level attributes and component details",
+          "items": "system_object (defined below)"
+        }
+      }
+    }
+  },
+
+  "system_object": {
+    "description": "Represents a complete HVAC system with its components",
+    "required_fields": ["system_id", "system_attributes", "components"],
+
+    "fields": {
+      "system_id": {
+        "type": "string",
+        "description": "Unique identifier for the system. Use AHRI reference number if available, otherwise generate unique ID (e.g., 'SYS_001', 'SYS_002')",
+        "examples": ["216723483", "SYS_001"],
+        "notes": "AHRI numbers are preferred as they tie to certifications. For standalone components or non-certified systems, generate IDs."
+      },
+
+      "system_attributes": {
+        "type": "object or null",
+        "description": "System-level performance and configuration data. Null for standalone components that don't form a complete system.",
+        "fields": {
+          "tonnage": {
+            "type": "float or null",
+            "description": "System cooling/heating capacity in tons",
+            "examples": [1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 5.0],
+            "extraction_hints": "Look for 'Ton', 'T' column or capacity values"
+          },
+          "capacity_btu": {
+            "type": "integer or null",
+            "description": "System capacity in BTU (British Thermal Units)",
+            "examples": [18000, 24000, 30000, 36000, 48000, 60000],
+            "extraction_hints": "May be listed as '18k', '24k', 'CAP' column. Convert 'k' values to full integers (18k → 18000)"
+          },
+          "seer": {
+            "type": "float or null",
+            "description": "SEER (Seasonal Energy Efficiency Ratio) rating - older standard",
+            "examples": [14.0, 16.0, 18.0, 20.0]
+          },
+          "seer2": {
+            "type": "float or null",
+            "description": "SEER2 rating - newer 2023 standard",
+            "examples": [14.3, 15.2, 16.5, 19.0],
+            "extraction_hints": "Look for 'SEER2', 'S2', 'Seer2' columns"
+          },
+          "eer": {
+            "type": "float or null",
+            "description": "EER (Energy Efficiency Ratio) rating - older standard",
+            "examples": [11.0, 12.5, 13.0]
+          },
+          "eer2": {
+            "type": "float or null",
+            "description": "EER2 rating - newer 2023 standard",
+            "examples": [11.7, 12.0, 13.4, 14.0],
+            "extraction_hints": "Look for 'EER2', 'E2' columns"
+          },
+          "hspf": {
+            "type": "float or null",
+            "description": "HSPF (Heating Seasonal Performance Factor) rating - older standard, for heat pumps only",
+            "examples": [8.2, 9.0, 9.5]
+          },
+          "hspf2": {
+            "type": "float or null",
+            "description": "HSPF2 rating - newer 2023 standard, for heat pumps only",
+            "examples": [7.5, 8.0, 8.8],
+            "extraction_hints": "Look for 'HSPF2' column"
+          },
+          "cooling_capacity_rated": {
+            "type": "integer or null",
+            "description": "Cooling capacity at rated conditions (typically 95°F outdoor)",
+            "examples": [11500, 18000, 24000]
+          },
+          "cooling_capacity_max": {
+            "type": "integer or null",
+            "description": "Cooling capacity at extreme conditions (e.g., 104°F outdoor)",
+            "examples": [8454, 10802, 15969],
+            "extraction_hints": "Look for 'Cooling @104' or similar columns"
+          },
+          "heating_capacity": {
+            "type": "integer or null",
+            "description": "Heating capacity in BTU (for heat pumps)",
+            "examples": [10000, 13000, 19000, 24000],
+            "extraction_hints": "Look for 'Heating cap' column"
+          },
+          "heating_temp_range": {
+            "type": "string or null",
+            "description": "Operating temperature range for heating",
+            "examples": ["-4", "23-115", "-20 to 70"],
+            "extraction_hints": "Look for 'Heating range' column"
+          },
+          "system_type": {
+            "type": "string",
+            "enum": ["AC", "HP", "Ductless", "MultiZone", "Package", "Unknown"],
+            "description": "Type of HVAC system",
+            "mapping": {
+              "AC": "Air Conditioning (cooling only)",
+              "HP": "Heat Pump (cooling + heating)",
+              "Ductless": "Ductless mini-split system",
+              "MultiZone": "Multi-zone ductless system",
+              "Package": "Packaged unit (all-in-one)"
+            },
+            "extraction_hints": "Infer from source_sheet name, presence of heating components, or system configuration"
+          },
+          "voltage": {
+            "type": "string or null",
+            "description": "System voltage requirement",
+            "examples": ["115V", "230V", "208-230V", "460V"],
+            "extraction_hints": "Look for voltage in sheet names or component specifications"
+          },
+          "stages": {
+            "type": "string or null",
+            "enum": ["single", "two_stage", "variable", "modulating"],
+            "description": "Compressor staging type",
+            "extraction_hints": "Infer from sheet names like 'Single Stage', 'Variable Speed', 'Connect'"
+          },
+          "configuration": {
+            "type": "string or null",
+            "enum": ["split", "package", "multi_zone", "single_zone"],
+            "description": "System physical configuration"
+          },
+          "line_set_length": {
+            "type": "integer or null",
+            "description": "Maximum line set length in feet",
+            "examples": [66, 83, 165],
+            "extraction_hints": "Look for 'Line lengths' column"
+          },
+          "total_price": {
+            "type": "float or null",
+            "description": "Total system price (sum of all components). Use 'Tot Sys' or 'Total Sys' column if available, otherwise sum component prices.",
+            "examples": [3047.0, 1210.98, 2049.46],
+            "notes": "Should equal sum of component prices if calculated"
+          },
+          "ahri_number": {
+            "type": "string or null",
+            "description": "AHRI certification number for this system configuration",
+            "examples": ["216723483", "215869480"],
+            "extraction_hints": "Look for 'AHRI Ref', 'AHRI Ref.' columns"
+          },
+          "source_sheet": {
+            "type": "string",
+            "description": "Original Excel sheet name where this system was found",
+            "examples": ["Single Stage Cooling ", "Single Stage HP ", "Connect ", "Ductless "]
+          }
+        }
+      },
+
+      "components": {
+        "type": "array",
+        "description": "List of components that make up this system. Must have at least one component.",
+        "items": {
+          "type": "object",
+          "description": "Individual HVAC component",
+          "required_fields": ["component_type", "model_number"],
+          "fields": {
+            "component_type": {
+              "type": "string",
+              "enum": ["ODU", "IDU", "Coil", "Furnace", "AirHandler", "AuxHeat", "Thermostat", "Accessory", "LineSet", "Other"],
+              "description": "Type of HVAC component",
+              "mapping": {
+                "ODU": "Outdoor Unit (condenser, compressor)",
+                "IDU": "Indoor Unit (ductless wall mount, cassette, etc.)",
+                "Coil": "Evaporator coil",
+                "Furnace": "Gas/oil/electric furnace with blower",
+                "AirHandler": "Air handler / fan coil (electric heat or no heat)",
+                "AuxHeat": "Auxiliary electric heat kit",
+                "Thermostat": "Thermostat/control system",
+                "Accessory": "Other accessories (filters, pads, etc.)",
+                "LineSet": "Refrigerant line set",
+                "Other": "Uncategorized component"
+              },
+              "extraction_hints": "Infer from column headers like 'ODU', 'Evap', 'Furnace', 'Fan Coil', 'AUX', 'Highwall', etc."
+            },
+            "model_number": {
+              "type": "string",
+              "description": "Manufacturer model/SKU number for this component",
+              "examples": ["NS16A18SA5", "NCHC24AT5S", "NF80U045S3A", "TUT812276600", "GS12WB1BEA"],
+              "notes": "Remove asterisks (*) or other special characters if present"
+            },
+            "manufacturer": {
+              "type": "string or null",
+              "description": "Manufacturer name (if identifiable from model pattern or catalog)",
+              "examples": ["Goodman", "Amana", "Daikin", "Carrier", "Trane"],
+              "extraction_hints": "Can often infer from model prefixes or catalog filename"
+            },
+            "price": {
+              "type": "float or null",
+              "description": "Individual component price in dollars",
+              "examples": [1661.0, 551.0, 835.0, 46.0],
+              "extraction_hints": "Look for '$' columns adjacent to component model numbers. Handle duplicate '$' columns carefully (use position/context)."
+            },
+            "role": {
+              "type": "string or null",
+              "description": "Functional role within the system (more specific than component_type)",
+              "examples": ["outdoor_unit", "indoor_unit", "evaporator", "air_handler", "auxiliary_heat", "primary_heat", "control"],
+              "extraction_hints": "Helps clarify component purpose, especially for complex systems"
+            },
+            "description": {
+              "type": "string or null",
+              "description": "Human-readable description of the component",
+              "examples": ["3 Ton Single Stage Air Conditioner", "Upflow/Horizontal Evap Coil", "80% AFUE 2-Stage Furnace"]
+            },
+            "specifications": {
+              "type": "object or null",
+              "description": "Additional technical specifications specific to this component",
+              "examples": [
+                {"orientation": "horizontal", "afue": 80, "stages": 2},
+                {"tonnage": 3.0, "refrigerant": "R410A"}
+              ]
+            }
+          }
+        }
+      },
+
+      "metadata": {
+        "type": "object",
+        "description": "Tracking and debugging information",
+        "fields": {
+          "raw_row_index": {
+            "type": "integer, array of integers, or null",
+            "description": "Original row number(s) from bronze JSON (0-indexed). Single integer for single-row systems, array of integers for multi-row systems.",
+            "examples": [0, 42, 156, [0, 1], [2, 3]],
+            "notes": "Multi-row systems (where one system spans multiple consecutive rows) should use array format to track all source rows"
+          },
+          "extraction_date": {
+            "type": "string",
+            "description": "ISO 8601 date when this data was extracted",
+            "format": "YYYY-MM-DD",
+            "examples": ["2024-12-08"]
+          },
+          "catalog_name": {
+            "type": "string",
+            "description": "Name of the source catalog file (without extension)",
+            "examples": ["GE_NDP_UPDATE_09_2025", "Goodman_2025_Price_Book"]
+          },
+          "catalog_version": {
+            "type": "string or null",
+            "description": "Catalog version or effective date if available",
+            "examples": ["2025-09", "Fall 2024", "v1.2"]
+          },
+          "notes": {
+            "type": "array of strings",
+            "description": "Any warnings, assumptions, or special handling notes from LLM transformation",
+            "examples": [
+              ["Tonnage inferred from capacity"],
+              ["Multiple $ columns found, used context to determine correct prices"],
+              ["AHRI number missing, generated system_id"]
+            ]
+          },
+          "data_quality": {
+            "type": "string",
+            "enum": ["high", "medium", "low"],
+            "description": "LLM's assessment of data completeness and reliability",
+            "examples": ["high"]
+          }
+        }
+      }
+    }
+  },
+
+  "transformation_guidelines": {
+    "system_grouping": [
+      "Group components by AHRI reference number when available",
+      "If no AHRI number, group by row (single row = single system)",
+      "For multi-component rows (ODU + Coil + Furnace in one row), create one system with multiple components",
+      "For standalone components (DEALER COST sheet), create individual systems with system_attributes=null"
+    ],
+    "system_id_generation": [
+      "Use AHRI number as system_id if available",
+      "Otherwise generate: SYS_001, SYS_002, etc.",
+      "For standalone components: COMP_001, COMP_002, etc."
+    ],
+    "component_type_inference": [
+      "Column header 'ODU' → component_type: 'ODU'",
+      "Column header 'Evap', 'Evap Coil' → component_type: 'Coil'",
+      "Column header 'Furnace' → component_type: 'Furnace'",
+      "Column header 'Fan Coil', 'Air Handler', 'AHU' → component_type: 'AirHandler'",
+      "Column header 'AUX', 'Aux Heat' → component_type: 'AuxHeat'",
+      "Column header 'Highwall', 'Wall Mount', 'IDU' → component_type: 'IDU'",
+      "For DEALER COST sheet: Infer from model patterns (NS16A = ODU, NCHC = Coil, etc.)"
+    ],
+    "price_extraction": [
+      "Multiple '$' columns in one row: Match by position/adjacency to component model",
+      "Column names like '$', '$_1', '$_2': Use position relative to model columns",
+      "'Tot Sys', 'Total Sys' column: Use as system_attributes.total_price",
+      "Standalone price sheet: Match model numbers to prices"
+    ],
+    "data_type_conversion": [
+      "Tonnage: Convert '1.5T', '2T', '3T' → float (1.5, 2.0, 3.0)",
+      "Capacity: Convert '18k', '24k' → integer BTU (18000, 24000)",
+      "SEER/EER values: Convert to float",
+      "Prices: Convert to float, handle commas",
+      "Remove leading/trailing whitespace from all strings",
+      "Remove asterisks (*) from model numbers"
+    ],
+    "special_cases": [
+      "Ductless systems: Extract voltage from row headers (115v, 230v)",
+      "Multi-header rows: Identify correct data row vs. category headers",
+      "Empty/null values: Use null for missing data, not empty strings or 0",
+      "Mixed units in same sheet: Identify unit boundaries (e.g., '115V' vs '230V' sections)"
+    ]
+  },
+
+  "validation_rules": {
+    "system_level": [
+      "Every system must have a system_id",
+      "Every system must have at least one component",
+      "If system_attributes is not null, tonnage OR capacity_btu should be present",
+      "If system_type is 'HP', should have heating-related fields (hspf/hspf2)",
+      "total_price should approximately equal sum of component prices (within 5% tolerance)"
+    ],
+    "component_level": [
+      "Every component must have component_type and model_number",
+      "model_number should not be empty or 'N/A' or 'nan'",
+      "price should be positive if present",
+      "component_type must be from allowed enum values"
+    ],
+    "data_quality": [
+      "Mark as 'high' if: AHRI number present, all key fields populated, prices match total",
+      "Mark as 'medium' if: Some fields missing but system identifiable",
+      "Mark as 'low' if: Significant data missing, prices don't match, or ambiguous structure"
+    ]
+  },
+
+  "example_output": {
+    "systems": [
+      {
+        "system_id": "216723483",
+        "system_attributes": {
+          "tonnage": 1.5,
+          "capacity_btu": 18000,
+          "seer": null,
+          "seer2": 16.5,
+          "eer": null,
+          "eer2": 14.0,
+          "hspf": null,
+          "hspf2": null,
+          "cooling_capacity_rated": null,
+          "cooling_capacity_max": null,
+          "heating_capacity": null,
+          "heating_temp_range": null,
+          "system_type": "AC",
+          "voltage": null,
+          "stages": "single",
+          "configuration": "split",
+          "line_set_length": null,
+          "total_price": 3047.0,
+          "ahri_number": "216723483",
+          "source_sheet": "Single Stage Cooling "
+        },
+        "components": [
+          {
+            "component_type": "ODU",
+            "model_number": "NS16A18SA5",
+            "manufacturer": "Goodman",
+            "price": 1661.0,
+            "role": "outdoor_unit",
+            "description": "1.5 Ton Single Stage Air Conditioner",
+            "specifications": null
+          },
+          {
+            "component_type": "Coil",
+            "model_number": "NCHC24AT5S",
+            "manufacturer": "Goodman",
+            "price": 551.0,
+            "role": "evaporator",
+            "description": "Cased Evaporator Coil",
+            "specifications": null
+          },
+          {
+            "component_type": "Furnace",
+            "model_number": "NF80U045S3A",
+            "manufacturer": "Goodman",
+            "price": 835.0,
+            "role": "air_handler",
+            "description": "80% AFUE Gas Furnace",
+            "specifications": {
+              "afue": 80,
+              "fuel_type": "gas"
+            }
+          }
+        ],
+        "metadata": {
+          "raw_row_index": 0,
+          "extraction_date": "2024-12-08",
+          "catalog_name": "GE_NDP_UPDATE_09_2025",
+          "catalog_version": "2025-09",
+          "notes": [],
+          "data_quality": "high"
+        }
+      },
+      {
+        "system_id": "SYS_DUCTLESS_001",
+        "system_attributes": {
+          "tonnage": 1.0,
+          "capacity_btu": 12000,
+          "seer": null,
+          "seer2": 20.0,
+          "eer": null,
+          "eer2": null,
+          "hspf": null,
+          "hspf2": null,
+          "cooling_capacity_rated": 11500,
+          "cooling_capacity_max": 8454,
+          "heating_capacity": 13000,
+          "heating_temp_range": "-4",
+          "system_type": "Ductless",
+          "voltage": "115V",
+          "stages": "single",
+          "configuration": "single_zone",
+          "line_set_length": 66,
+          "total_price": 1210.98,
+          "ahri_number": null,
+          "source_sheet": "Ductless "
+        },
+        "components": [
+          {
+            "component_type": "ODU",
+            "model_number": "1G12CB1BEA",
+            "manufacturer": "GE",
+            "price": 697.0,
+            "role": "outdoor_unit",
+            "description": "12K BTU Ductless Heat Pump Outdoor Unit",
+            "specifications": null
+          },
+          {
+            "component_type": "IDU",
+            "model_number": "GS12WB1BEA",
+            "manufacturer": "GE",
+            "price": 514.0,
+            "role": "indoor_unit",
+            "description": "12K BTU High Wall Indoor Unit",
+            "specifications": {
+              "mounting": "wall",
+              "style": "high_wall"
+            }
+          }
+        ],
+        "metadata": {
+          "raw_row_index": 1,
+          "extraction_date": "2024-12-08",
+          "catalog_name": "GE_NDP_UPDATE_09_2025",
+          "catalog_version": "2025-09",
+          "notes": [
+            "Header row not detected automatically, inferred from data",
+            "AHRI number not available, generated system_id",
+            "Voltage extracted from sheet section header"
+          ],
+          "data_quality": "medium"
+        }
+      },
+      {
+        "system_id": "COMP_001",
+        "system_attributes": null,
+        "components": [
+          {
+            "component_type": "ODU",
+            "model_number": "NS16A18SA5",
+            "manufacturer": "Goodman",
+            "price": 1661.0,
+            "role": null,
+            "description": "Standalone ODU component from dealer cost sheet",
+            "specifications": null
+          }
+        ],
+        "metadata": {
+          "raw_row_index": 0,
+          "extraction_date": "2024-12-08",
+          "catalog_name": "GE_NDP_UPDATE_09_2025",
+          "catalog_version": "2025-09",
+          "notes": [
+            "Standalone component from DEALER COST sheet",
+            "No system-level attributes available"
+          ],
+          "data_quality": "medium"
+        }
+      }
+    ]
+  }
+}

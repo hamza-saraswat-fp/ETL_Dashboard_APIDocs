@@ -1,0 +1,49 @@
+{% if logs and logs.logs %}
+<div class="divide-y divide-slate-700">
+    {% for entry in logs.logs %}
+    <div class="px-4 py-2 text-sm hover:bg-slate-700/50">
+        <div class="flex items-center justify-between">
+            <span class="font-mono text-xs
+                {% if entry.level == 'error' %}text-red-400
+                {% elif entry.level == 'warning' %}text-yellow-400
+                {% elif entry.level == 'debug' %}text-slate-500
+                {% else %}text-blue-400{% endif %}">
+                [{{ entry.level|upper }}] {{ entry.step }}
+            </span>
+            <span class="text-xs text-slate-500">{{ entry.timestamp }}</span>
+        </div>
+        <p class="text-slate-300 mt-1">{{ entry.message }}</p>
+        {% if entry.duration_ms %}
+        <span class="text-xs text-slate-500">Duration: {{ entry.duration_ms }}ms</span>
+        {% endif %}
+        {% if entry.metadata %}
+        <details class="mt-1">
+            <summary class="text-xs text-slate-500 cursor-pointer hover:text-slate-400">Show metadata</summary>
+            <pre class="json text-xs mt-1 p-2 bg-slate-900 rounded overflow-x-auto">{{ entry.metadata|tojson(indent=2) }}</pre>
+        </details>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+
+{% if logs.success is defined %}
+<div class="px-4 py-3 border-t border-slate-700 {% if logs.success %}bg-green-500/10{% else %}bg-red-500/10{% endif %}">
+    <div class="flex items-center justify-between text-sm">
+        <span class="{% if logs.success %}text-green-400{% else %}text-red-400{% endif %}">
+            {{ 'Completed successfully' if logs.success else 'Failed' }}
+        </span>
+        {% if logs.total_duration_ms %}
+        <span class="text-slate-400">Total: {{ (logs.total_duration_ms / 1000)|round(1) }}s</span>
+        {% endif %}
+    </div>
+    {% if logs.error %}
+    <p class="text-red-300 mt-1 text-sm">{{ logs.error }}</p>
+    {% endif %}
+</div>
+{% endif %}
+
+{% else %}
+<div class="p-8 text-center text-slate-500">
+    No logs available for job {{ job_id }}
+</div>
+{% endif %}

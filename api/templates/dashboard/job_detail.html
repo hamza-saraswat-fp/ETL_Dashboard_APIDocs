@@ -1,0 +1,247 @@
+{% extends "base.html" %}
+
+{% block title %}Job {{ job.id[:8] }}{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Header -->
+    <div class="flex items-center justify-between">
+        <div class="flex items-center space-x-4">
+            <a href="/dashboard" class="text-slate-400 hover:text-slate-600">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                </svg>
+            </a>
+            <h1 class="text-2xl font-bold text-slate-800">Job Details</h1>
+        </div>
+        <div class="flex items-center space-x-3">
+            {% if job.langwatch_trace_url %}
+            <a href="{{ job.langwatch_trace_url }}" target="_blank"
+               class="inline-flex items-center px-3 py-1.5 bg-purple-100 text-purple-700 rounded-md text-sm hover:bg-purple-200">
+                View in LangWatch
+                <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                </svg>
+            </a>
+            {% endif %}
+            <span class="inline-flex items-center px-3 py-1.5 rounded-md text-sm font-medium
+                {% if job.status == 'completed' %}bg-green-100 text-green-700
+                {% elif job.status == 'failed' %}bg-red-100 text-red-700
+                {% elif job.status in ['processing', 'stage1', 'stage2', 'stage3'] %}bg-blue-100 text-blue-700
+                {% elif job.status == 'pending' %}bg-yellow-100 text-yellow-700
+                {% else %}bg-gray-100 text-gray-700{% endif %}">
+                {{ job.status|upper }}
+            </span>
+        </div>
+    </div>
+
+    <!-- Job Info Card -->
+    <div class="bg-white rounded-lg border border-slate-200 shadow-sm">
+        <div class="px-4 py-3 border-b border-slate-200">
+            <h2 class="font-semibold text-slate-800">Job Information</h2>
+        </div>
+        <div class="p-4 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+            <div>
+                <span class="text-slate-500 block">Job ID</span>
+                <span class="font-mono text-xs text-slate-700">{{ job.id }}</span>
+            </div>
+            <div>
+                <span class="text-slate-500 block">Input File</span>
+                <span class="text-slate-700">{{ job.input_filename or 'N/A' }}</span>
+            </div>
+            <div>
+                <span class="text-slate-500 block">Source Type</span>
+                <span class="text-slate-700">{{ job.source_type or 'N/A' }}</span>
+            </div>
+            <div>
+                <span class="text-slate-500 block">Systems Found</span>
+                <span class="text-purple-600">{{ job.systems_count or '--' }}</span>
+            </div>
+            <div>
+                <span class="text-slate-500 block">Created</span>
+                <span class="text-slate-700">{{ job.created_at }}</span>
+            </div>
+            <div>
+                <span class="text-slate-500 block">Started</span>
+                <span class="text-slate-700">{{ job.started_at or '--' }}</span>
+            </div>
+            <div>
+                <span class="text-slate-500 block">Completed</span>
+                <span class="text-slate-700">{{ job.completed_at or '--' }}</span>
+            </div>
+            <div>
+                <span class="text-slate-500 block">Progress</span>
+                <span class="text-slate-700">{{ job.progress_percent }}% - {{ job.progress_message or job.current_stage or '--' }}</span>
+            </div>
+        </div>
+
+        {% if job.error_message %}
+        <div class="px-4 py-3 border-t border-slate-200 bg-red-50">
+            <span class="text-red-600 font-medium">Error:</span>
+            <p class="text-red-700 mt-1">{{ job.error_message }}</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- LLM Metrics Card -->
+    {% if llm_metrics and llm_metrics.call_count > 0 %}
+    <div class="bg-white rounded-lg border border-slate-200 shadow-sm">
+        <div class="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
+            <h2 class="font-semibold text-slate-800">LLM Metrics</h2>
+            {% if llm_metrics.models_used %}
+            <span class="text-xs text-slate-400">{{ llm_metrics.models_used|join(', ') }}</span>
+            {% endif %}
+        </div>
+        <div class="p-4 grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div class="text-center">
+                <span class="text-slate-500 text-sm block">Total Tokens</span>
+                <div class="text-2xl font-bold text-purple-600">{{ '{:,}'.format(llm_metrics.total_tokens) }}</div>
+                <span class="text-xs text-slate-400">{{ '{:,}'.format(llm_metrics.total_prompt_tokens) }} in / {{ '{:,}'.format(llm_metrics.total_completion_tokens) }} out</span>
+            </div>
+            <div class="text-center">
+                <span class="text-slate-500 text-sm block">LLM Calls</span>
+                <div class="text-2xl font-bold text-blue-600">{{ llm_metrics.call_count }}</div>
+                <span class="text-xs text-slate-400">API requests</span>
+            </div>
+            <div class="text-center">
+                <span class="text-slate-500 text-sm block">Total Duration</span>
+                <div class="text-2xl font-bold text-green-600">{{ '%.1f'|format(llm_metrics.total_duration_ms / 1000) }}s</div>
+                <span class="text-xs text-slate-400">avg {{ '%.1f'|format(llm_metrics.avg_duration_ms / 1000) }}s per call</span>
+            </div>
+            <div class="text-center">
+                <span class="text-slate-500 text-sm block">Est. Cost</span>
+                <div class="text-2xl font-bold text-amber-600">${{ '%.4f'|format(llm_metrics.estimated_cost) }}</div>
+                <span class="text-xs text-slate-400">based on Claude pricing</span>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Lineage Flow -->
+    <div class="bg-white rounded-lg border border-slate-200 shadow-sm">
+        <div class="px-4 py-3 border-b border-slate-200">
+            <h2 class="font-semibold text-slate-800">Pipeline Lineage</h2>
+        </div>
+        <div hx-get="/dashboard/jobs/{{ job.id }}/lineage-partial" hx-trigger="load" hx-swap="innerHTML">
+            <div class="p-8 text-center text-slate-400">Loading lineage...</div>
+        </div>
+    </div>
+
+    <!-- Main Content Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Structured Logs -->
+        <div class="bg-white rounded-lg border border-slate-200 shadow-sm">
+            <div class="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
+                <h2 class="font-semibold text-slate-800">Execution Log</h2>
+                {% if logs %}
+                <span class="text-xs text-slate-400">{{ logs.logs|length }} entries</span>
+                {% endif %}
+            </div>
+            <div class="max-h-96 overflow-y-auto">
+                {% if logs and logs.logs %}
+                <div class="divide-y divide-slate-100">
+                    {% for entry in logs.logs %}
+                    <div class="px-4 py-2 text-sm hover:bg-slate-50">
+                        <div class="flex items-center justify-between">
+                            <span class="font-mono text-xs
+                                {% if entry.level == 'error' %}text-red-600
+                                {% elif entry.level == 'warning' %}text-yellow-600
+                                {% else %}text-blue-600{% endif %}">
+                                {{ entry.step }}
+                            </span>
+                            <span class="text-xs text-slate-400">{{ entry.timestamp }}</span>
+                        </div>
+                        <p class="text-slate-600 mt-1">{{ entry.message }}</p>
+                        {% if entry.duration_ms %}
+                        <span class="text-xs text-slate-400">Duration: {{ entry.duration_ms }}ms</span>
+                        {% endif %}
+                        {% if entry.metadata %}
+                        <details class="mt-1">
+                            <summary class="text-xs text-slate-400 cursor-pointer hover:text-slate-600">Metadata</summary>
+                            <pre class="json text-xs mt-1 p-2 bg-slate-50 rounded overflow-x-auto">{{ entry.metadata|tojson(indent=2) }}</pre>
+                        </details>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="p-8 text-center text-slate-400">
+                    No structured logs available
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- LLM Calls -->
+        <div class="bg-white rounded-lg border border-slate-200 shadow-sm">
+            <div class="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
+                <h2 class="font-semibold text-slate-800">LLM Calls</h2>
+                {% if lineage and lineage.llm_calls %}
+                <span class="text-xs text-slate-400">{{ lineage.llm_calls|length }} calls</span>
+                {% endif %}
+            </div>
+            <div class="max-h-96 overflow-y-auto">
+                {% if lineage and lineage.llm_calls %}
+                <div class="divide-y divide-slate-100">
+                    {% for call in lineage.llm_calls %}
+                    <div class="px-4 py-3 text-sm">
+                        <div class="flex items-center justify-between">
+                            <span class="text-slate-700 font-medium">{{ call.model }}</span>
+                            <span class="text-xs text-slate-400">{{ call.timestamp }}</span>
+                        </div>
+                        <div class="flex items-center space-x-4 mt-2 text-xs">
+                            <span class="text-blue-600">{{ call.tokens.prompt_tokens }} prompt</span>
+                            <span class="text-green-600">{{ call.tokens.completion_tokens }} completion</span>
+                            <span class="text-slate-400">{{ call.duration_ms }}ms</span>
+                        </div>
+                        {% if call.trace_id %}
+                        <a href="https://app.langwatch.ai/traces/{{ call.trace_id }}" target="_blank"
+                           class="text-xs text-purple-600 hover:underline mt-1 inline-block">
+                            View trace
+                        </a>
+                        {% endif %}
+                        {% if call.prompt_preview %}
+                        <details class="mt-2">
+                            <summary class="text-xs text-slate-400 cursor-pointer hover:text-slate-600">Prompt preview</summary>
+                            <pre class="text-xs mt-1 p-2 bg-slate-50 rounded overflow-x-auto whitespace-pre-wrap">{{ call.prompt_preview }}</pre>
+                        </details>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="p-8 text-center text-slate-400">
+                    No LLM calls recorded
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Downloads -->
+    {% if job.status == 'completed' %}
+    <div class="bg-white rounded-lg border border-slate-200 shadow-sm">
+        <div class="px-4 py-3 border-b border-slate-200">
+            <h2 class="font-semibold text-slate-800">Downloads</h2>
+        </div>
+        <div class="p-4 flex flex-wrap gap-3">
+            <a href="/api/v1/jobs/{{ job.id }}/download"
+               class="inline-flex items-center px-4 py-2 bg-green-100 text-green-700 rounded-md hover:bg-green-200">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+                Gold Excel
+            </a>
+            <a href="/api/v1/jobs/{{ job.id }}/artifacts/bronze"
+               class="inline-flex items-center px-4 py-2 bg-slate-100 text-slate-700 rounded-md hover:bg-slate-200">
+                Bronze JSON
+            </a>
+            <a href="/api/v1/jobs/{{ job.id }}/artifacts/silver"
+               class="inline-flex items-center px-4 py-2 bg-slate-100 text-slate-700 rounded-md hover:bg-slate-200">
+                Silver JSON
+            </a>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

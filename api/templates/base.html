@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}ETL Admin{% endblock %} | HVAC ETL Pipeline</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'brand': {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            500: '#0ea5e9',
+                            600: '#0284c7',
+                            700: '#0369a1',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- HTMX -->
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+
+    <!-- Custom styles -->
+    <style>
+        /* JSON syntax highlighting */
+        .json-key { color: #0369a1; }
+        .json-string { color: #059669; }
+        .json-number { color: #d97706; }
+        .json-boolean { color: #7c3aed; }
+        .json-null { color: #64748b; }
+
+        /* HTMX loading indicator */
+        .htmx-indicator {
+            opacity: 0;
+            transition: opacity 200ms ease-in;
+        }
+        .htmx-request .htmx-indicator {
+            opacity: 1;
+        }
+        .htmx-request.htmx-indicator {
+            opacity: 1;
+        }
+
+        /* Status badges */
+        .status-pending { @apply bg-yellow-100 text-yellow-700; }
+        .status-processing, .status-stage1, .status-stage2, .status-stage3 { @apply bg-blue-100 text-blue-700; }
+        .status-completed { @apply bg-green-100 text-green-700; }
+        .status-failed { @apply bg-red-100 text-red-700; }
+        .status-cancelled { @apply bg-gray-100 text-gray-700; }
+
+        /* Scrollbar styling */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        /* Lineage flow */
+        .lineage-node {
+            @apply bg-white border border-slate-200 rounded-lg p-3 text-center shadow-sm;
+        }
+        .lineage-node.completed {
+            @apply border-green-300 bg-green-50;
+        }
+        .lineage-node.active {
+            @apply border-blue-300 bg-blue-50 animate-pulse;
+        }
+        .lineage-arrow {
+            @apply text-slate-400;
+        }
+    </style>
+
+    {% block head %}{% endblock %}
+</head>
+<body class="bg-slate-50 text-slate-900 min-h-screen">
+    <!-- Navigation -->
+    <nav class="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-14">
+                <div class="flex items-center space-x-8">
+                    <a href="/dashboard" class="flex items-center space-x-2">
+                        <svg class="w-6 h-6 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                        </svg>
+                        <span class="font-semibold text-lg text-slate-800">ETL Admin</span>
+                    </a>
+                    <div class="hidden md:flex items-center space-x-4">
+                        <a href="/dashboard" class="px-3 py-2 rounded-md text-sm font-medium text-slate-600 hover:bg-slate-100 {% if active_page == 'dashboard' %}bg-slate-100 text-slate-900{% endif %}">
+                            Dashboard
+                        </a>
+                        <a href="/dashboard/diff" class="px-3 py-2 rounded-md text-sm font-medium text-slate-600 hover:bg-slate-100 {% if active_page == 'diff' %}bg-slate-100 text-slate-900{% endif %}">
+                            Diff Viewer
+                        </a>
+                        <a href="/docs" target="_blank" class="px-3 py-2 rounded-md text-sm font-medium text-slate-600 hover:bg-slate-100">
+                            API Docs
+                        </a>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <!-- Health indicator -->
+                    <div hx-get="/dashboard/health-badge" hx-trigger="load, every 30s" hx-swap="innerHTML" class="htmx-indicator">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100">
+                            Loading...
+                        </span>
+                    </div>
+                    <!-- LangWatch link -->
+                    {% if langwatch_enabled %}
+                    <a href="https://app.langwatch.ai" target="_blank" class="text-sm text-slate-500 hover:text-slate-700">
+                        LangWatch
+                        <svg class="inline w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                        </svg>
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-slate-200 mt-auto bg-white">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <p class="text-sm text-slate-500 text-center">
+                HVAC Catalog ETL Pipeline Admin Panel
+            </p>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script>
+        // JSON syntax highlighting
+        function highlightJson(json) {
+            if (typeof json !== 'string') {
+                json = JSON.stringify(json, null, 2);
+            }
+            return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
+                let cls = 'json-number';
+                if (/^"/.test(match)) {
+                    if (/:$/.test(match)) {
+                        cls = 'json-key';
+                    } else {
+                        cls = 'json-string';
+                    }
+                } else if (/true|false/.test(match)) {
+                    cls = 'json-boolean';
+                } else if (/null/.test(match)) {
+                    cls = 'json-null';
+                }
+                return '<span class="' + cls + '">' + match + '</span>';
+            });
+        }
+
+        // Apply highlighting to all JSON blocks
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('pre.json').forEach(function(block) {
+                block.innerHTML = highlightJson(block.textContent);
+            });
+        });
+
+        // Re-apply highlighting after HTMX swaps
+        document.body.addEventListener('htmx:afterSwap', function(event) {
+            event.target.querySelectorAll('pre.json').forEach(function(block) {
+                block.innerHTML = highlightJson(block.textContent);
+            });
+        });
+
+        // Format relative time
+        function formatRelativeTime(dateString) {
+            if (!dateString) return 'N/A';
+            const date = new Date(dateString);
+            const now = new Date();
+            const diffMs = now - date;
+            const diffSec = Math.floor(diffMs / 1000);
+            const diffMin = Math.floor(diffSec / 60);
+            const diffHour = Math.floor(diffMin / 60);
+            const diffDay = Math.floor(diffHour / 24);
+
+            if (diffSec < 60) return 'just now';
+            if (diffMin < 60) return `${diffMin}m ago`;
+            if (diffHour < 24) return `${diffHour}h ago`;
+            return `${diffDay}d ago`;
+        }
+
+        // Update all relative times
+        function updateRelativeTimes() {
+            document.querySelectorAll('[data-timestamp]').forEach(function(el) {
+                el.textContent = formatRelativeTime(el.dataset.timestamp);
+            });
+        }
+        setInterval(updateRelativeTimes, 60000);
+    </script>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>

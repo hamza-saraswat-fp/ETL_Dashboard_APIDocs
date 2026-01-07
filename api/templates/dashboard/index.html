@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Header -->
+    <div class="flex items-center justify-between">
+        <h1 class="text-2xl font-bold text-slate-800">Dashboard</h1>
+        <div class="flex items-center space-x-2 text-sm text-slate-500">
+            <span>Auto-refresh</span>
+            <span class="htmx-indicator">
+                <svg class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                </svg>
+            </span>
+        </div>
+    </div>
+
+    <!-- Quick Stats -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <!-- Queue Status -->
+        <div class="bg-white rounded-lg p-4 border border-slate-200 shadow-sm">
+            <div class="flex items-center justify-between">
+                <span class="text-slate-500 text-sm">Active Jobs</span>
+                <span class="text-2xl font-bold text-blue-600">{{ summary.queue.active }}</span>
+            </div>
+            <div class="mt-2 text-xs text-slate-400">
+                {{ summary.queue.pending }} pending / {{ summary.queue.max_concurrent }} max
+            </div>
+        </div>
+
+        <!-- Success Rate -->
+        <div class="bg-white rounded-lg p-4 border border-slate-200 shadow-sm">
+            <div class="flex items-center justify-between">
+                <span class="text-slate-500 text-sm">Success Rate (24h)</span>
+                <span class="text-2xl font-bold {% if summary.stats_24h.success_rate >= 90 %}text-green-600{% elif summary.stats_24h.success_rate >= 70 %}text-yellow-600{% else %}text-red-600{% endif %}">
+                    {{ summary.stats_24h.success_rate }}%
+                </span>
+            </div>
+            <div class="mt-2 text-xs text-slate-400">
+                {{ summary.stats_24h.completed }} completed / {{ summary.stats_24h.failed }} failed
+            </div>
+        </div>
+
+        <!-- Avg Duration -->
+        <div class="bg-white rounded-lg p-4 border border-slate-200 shadow-sm">
+            <div class="flex items-center justify-between">
+                <span class="text-slate-500 text-sm">Avg Duration</span>
+                <span class="text-2xl font-bold text-slate-700">
+                    {% if summary.stats_24h.avg_duration_seconds %}
+                        {{ (summary.stats_24h.avg_duration_seconds / 60)|round(1) }}m
+                    {% else %}
+                        --
+                    {% endif %}
+                </span>
+            </div>
+            <div class="mt-2 text-xs text-slate-400">
+                {{ summary.stats_24h.total_jobs }} jobs in 24h
+            </div>
+        </div>
+
+        <!-- Systems Processed -->
+        <div class="bg-white rounded-lg p-4 border border-slate-200 shadow-sm">
+            <div class="flex items-center justify-between">
+                <span class="text-slate-500 text-sm">Systems (24h)</span>
+                <span class="text-2xl font-bold text-purple-600">{{ summary.stats_24h.total_systems_processed }}</span>
+            </div>
+            <div class="mt-2 text-xs text-slate-400">
+                {{ summary.llm_usage.total_tokens|default(0) }} tokens used
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Recent Jobs -->
+        <div class="lg:col-span-2 bg-white rounded-lg border border-slate-200 shadow-sm">
+            <div class="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
+                <h2 class="font-semibold text-slate-800">Recent Jobs</h2>
+                <span class="text-xs text-slate-400">Last {{ summary.recent_jobs|length }} jobs</span>
+            </div>
+            <div hx-get="/dashboard/jobs-partial" hx-trigger="every 5s" hx-swap="innerHTML">
+                {% with jobs=summary.recent_jobs %}
+                {% include 'dashboard/partials/job_list.html' %}
+                {% endwith %}
+            </div>
+        </div>
+
+        <!-- Right Sidebar -->
+        <div class="space-y-6">
+            <!-- Health Status -->
+            <div class="bg-white rounded-lg border border-slate-200 shadow-sm">
+                <div class="px-4 py-3 border-b border-slate-200">
+                    <h2 class="font-semibold text-slate-800">System Health</h2>
+                </div>
+                <div hx-get="/dashboard/health-partial" hx-trigger="every 30s" hx-swap="innerHTML">
+                    {% with health=summary.health %}
+                    {% include 'dashboard/partials/health_status.html' %}
+                    {% endwith %}
+                </div>
+            </div>
+
+            <!-- Recent Errors -->
+            {% if summary.recent_errors %}
+            <div class="bg-white rounded-lg border border-slate-200 shadow-sm">
+                <div class="px-4 py-3 border-b border-slate-200">
+                    <h2 class="font-semibold text-red-600">Recent Errors</h2>
+                </div>
+                <div class="p-4 space-y-3">
+                    {% for error in summary.recent_errors %}
+                    <div class="text-sm">
+                        <div class="flex items-center justify-between">
+                            <a href="/dashboard/jobs/{{ error.job_id }}" class="text-blue-600 hover:underline font-mono text-xs">
+                                {{ error.job_id[:8] }}...
+                            </a>
+                            <span class="text-xs text-slate-400" data-timestamp="{{ error.failed_at }}">
+                                {{ error.failed_at }}
+                            </span>
+                        </div>
+                        <p class="text-slate-500 mt-1 truncate">{{ error.error_message or 'Unknown error' }}</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- LLM Usage -->
+            <div class="bg-white rounded-lg border border-slate-200 shadow-sm">
+                <div class="px-4 py-3 border-b border-slate-200">
+                    <h2 class="font-semibold text-slate-800">LLM Usage (24h)</h2>
+                </div>
+                <div class="p-4 space-y-2 text-sm">
+                    <div class="flex justify-between">
+                        <span class="text-slate-500">API Calls</span>
+                        <span class="text-slate-700">{{ summary.llm_usage.total_calls }}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-slate-500">Total Tokens</span>
+                        <span class="text-slate-700">{{ "{:,}".format(summary.llm_usage.total_tokens) }}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-slate-500">Prompt Tokens</span>
+                        <span class="text-slate-700">{{ "{:,}".format(summary.llm_usage.total_prompt_tokens) }}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-slate-500">Completion Tokens</span>
+                        <span class="text-slate-700">{{ "{:,}".format(summary.llm_usage.total_completion_tokens) }}</span>
+                    </div>
+                    <div class="flex justify-between pt-2 border-t border-slate-200">
+                        <span class="text-slate-500">Est. Cost</span>
+                        <span class="text-green-600">${{ summary.llm_usage.estimated_cost_usd }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

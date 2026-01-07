@@ -1,0 +1,161 @@
+/* Dashboard Custom Styles */
+
+/* Status badges - Tailwind classes don't work in pure CSS, so we define fallbacks */
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.125rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+/* Loading skeleton */
+.skeleton {
+    animation: skeleton-loading 1s linear infinite alternate;
+}
+
+@keyframes skeleton-loading {
+    0% {
+        background-color: rgba(100, 116, 139, 0.3);
+    }
+    100% {
+        background-color: rgba(100, 116, 139, 0.5);
+    }
+}
+
+/* Smooth transitions for HTMX swaps */
+.htmx-swapping {
+    opacity: 0;
+    transition: opacity 0.2s ease-out;
+}
+
+/* JSON viewer styles */
+.json-viewer {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-size: 0.75rem;
+    line-height: 1.5;
+}
+
+.json-viewer .json-key {
+    color: #7dd3fc;
+}
+
+.json-viewer .json-string {
+    color: #86efac;
+}
+
+.json-viewer .json-number {
+    color: #fbbf24;
+}
+
+.json-viewer .json-boolean {
+    color: #c084fc;
+}
+
+.json-viewer .json-null {
+    color: #94a3b8;
+}
+
+/* Collapsible sections */
+details summary {
+    cursor: pointer;
+    user-select: none;
+}
+
+details summary::-webkit-details-marker {
+    display: none;
+}
+
+details summary::before {
+    content: '▶';
+    display: inline-block;
+    margin-right: 0.5rem;
+    transition: transform 0.2s;
+    font-size: 0.75rem;
+}
+
+details[open] summary::before {
+    transform: rotate(90deg);
+}
+
+/* Progress bar animation */
+.progress-bar {
+    transition: width 0.3s ease-in-out;
+}
+
+/* Diff highlighting */
+.diff-added {
+    background-color: rgba(34, 197, 94, 0.1);
+    border-left: 3px solid #22c55e;
+}
+
+.diff-removed {
+    background-color: rgba(239, 68, 68, 0.1);
+    border-left: 3px solid #ef4444;
+}
+
+.diff-modified {
+    background-color: rgba(234, 179, 8, 0.1);
+    border-left: 3px solid #eab308;
+}
+
+/* Lineage flow */
+.lineage-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    padding: 1.5rem;
+    overflow-x: auto;
+}
+
+.lineage-node {
+    min-width: 8rem;
+    padding: 0.75rem;
+    background-color: rgba(30, 41, 59, 1);
+    border: 1px solid rgba(51, 65, 85, 1);
+    border-radius: 0.5rem;
+    text-align: center;
+    transition: all 0.2s;
+}
+
+.lineage-node:hover {
+    border-color: rgba(59, 130, 246, 0.5);
+}
+
+.lineage-node.completed {
+    border-color: rgba(34, 197, 94, 0.5);
+    background-color: rgba(34, 197, 94, 0.1);
+}
+
+.lineage-node.active {
+    border-color: rgba(59, 130, 246, 0.5);
+    background-color: rgba(59, 130, 246, 0.1);
+    animation: pulse 2s infinite;
+}
+
+.lineage-node.error {
+    border-color: rgba(239, 68, 68, 0.5);
+    background-color: rgba(239, 68, 68, 0.1);
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.7;
+    }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .lineage-container {
+        flex-direction: column;
+    }
+
+    .lineage-arrow {
+        transform: rotate(90deg);
+    }
+}
