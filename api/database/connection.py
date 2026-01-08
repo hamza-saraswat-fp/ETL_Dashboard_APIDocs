@@ -15,17 +15,20 @@ logger = logging.getLogger(__name__)
 
 def get_engine():
     """Create SQLAlchemy engine"""
-    # Ensure the database directory exists
     db_url = settings.DATABASE_URL
+
     if db_url.startswith("sqlite:///"):
+        # SQLite: ensure directory exists and use check_same_thread
         db_path = db_url.replace("sqlite:///", "")
         if db_path.startswith("./"):
             Path(db_path).parent.mkdir(parents=True, exist_ok=True)
-
-    return create_engine(
-        db_url,
-        connect_args={"check_same_thread": False}  # SQLite specific
-    )
+        return create_engine(
+            db_url,
+            connect_args={"check_same_thread": False}
+        )
+    else:
+        # PostgreSQL and other databases
+        return create_engine(db_url)
 
 
 # Create engine and session factory
