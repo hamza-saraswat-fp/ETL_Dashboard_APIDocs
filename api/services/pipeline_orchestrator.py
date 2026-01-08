@@ -19,6 +19,14 @@ if str(project_root) not in sys.path:
 
 from api.logging.structured_logger import JobLogger
 
+# Storage service for cloud uploads
+try:
+    from api.services.storage_service import get_storage_service
+    _storage_available = True
+except ImportError:
+    _storage_available = False
+    def get_storage_service(): return None
+
 # LangWatch integration with graceful fallback
 try:
     from api.services.langwatch_service import (
@@ -118,6 +126,32 @@ class PipelineOrchestrator:
         if self.progress_callback:
             self.progress_callback(stage, percent, message)
         logger.info(f"[{self.job_id}] {stage}: {percent}% - {message}")
+
+    def _upload_to_cloud(self, file_path: Path, stage: str) -> bool:
+        """Upload a file to cloud storage if configured"""
+        if not _storage_available:
+            return False
+
+        storage = get_storage_service()
+        if not storage or not storage.use_cloud:
+            return False
+
+        try:
+            content = file_path.read_bytes()
+            content_type = "application/json" if file_path.suffix == ".json" else "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            success = storage.upload_file(
+                self.job_id,
+                stage,
+                file_path.name,
+                content,
+                content_type
+            )
+            if success:
+                logger.info(f"Uploaded {stage}/{file_path.name} to cloud storage")
+            return success
+        except Exception as e:
+            logger.error(f"Failed to upload {file_path.name} to cloud: {e}")
+            return False
 
     @langwatch_trace(name="etl_pipeline")
     def run_pipeline(
@@ -241,6 +275,9 @@ class PipelineOrchestrator:
             }
             self._update_progress("stage1", 100, "Extraction complete")
 
+            # Upload bronze artifact to cloud storage
+            self._upload_to_cloud(bronze_path, "bronze")
+
             # Stage 2: Transformation (Silver) - includes LLM calls
             self._update_progress("stage2", 0, "Starting transformation...")
             self.job_logger.stage_start("stage2_transformation", {"enable_ahri": enable_ahri_enrichment})
@@ -325,6 +362,9 @@ class PipelineOrchestrator:
             }
             self._update_progress("stage2", 100, "Transformation complete")
 
+            # Upload silver artifact to cloud storage
+            self._upload_to_cloud(silver_path, "silver")
+
             # Stage 3: Loading (Gold)
             self._update_progress("stage3", 0, "Generating Excel output...")
             self.job_logger.stage_start("stage3_loading", {"costbook_title": costbook_title})
@@ -354,6 +394,9 @@ class PipelineOrchestrator:
                 "row_count": gold_row_count
             }
             self._update_progress("stage3", 100, "Loading complete")
+
+            # Upload gold artifact to cloud storage
+            self._upload_to_cloud(gold_path, "gold")
 
             results["output_file"] = gold_path.name
             results["stats"] = {

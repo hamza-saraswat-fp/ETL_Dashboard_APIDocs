@@ -3,12 +3,31 @@ services:
     name: hvac-etl-dashboard
     runtime: docker
     dockerfilePath: ./Dockerfile
-    plan: free
+    plan: starter  # $7/month - needed for playwright/docling
     healthCheckPath: /api/v1/health
     envVars:
+      # Database - Supabase PostgreSQL (set in Render dashboard)
       - key: DATABASE_URL
-        value: sqlite:///./data/jobs.db
+        sync: false  # Set this in Render dashboard with your Supabase connection string
+
+      # LLM API (set in Render dashboard)
+      - key: OPENROUTER_API_KEY
+        sync: false  # Set this in Render dashboard
+
+      # Observability (set in Render dashboard)
+      - key: LANGWATCH_API_KEY
+        sync: false  # Set this in Render dashboard
       - key: LANGWATCH_ENABLED
-        value: "false"
+        value: "true"
+
+      # Supabase Storage (set in Render dashboard)
+      - key: SUPABASE_URL
+        sync: false  # Set this in Render dashboard
+      - key: SUPABASE_KEY
+        sync: false  # Set this in Render dashboard (use service_role key)
+      - key: SUPABASE_BUCKET
+        value: "etl-artifacts"
+
+      # Python settings
       - key: PYTHONUNBUFFERED
         value: "1"

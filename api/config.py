@@ -42,6 +42,11 @@ class Settings(BaseSettings):
     LANGWATCH_API_KEY: str = ""
     LANGWATCH_ENABLED: bool = True
 
+    # Supabase (for cloud storage)
+    SUPABASE_URL: str = ""
+    SUPABASE_KEY: str = ""  # service_role key
+    SUPABASE_BUCKET: str = "etl-artifacts"
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
@@ -52,10 +57,16 @@ class Settings(BaseSettings):
         for dir_path in [self.JOBS_DIR, self.CACHE_DIR, self.LOGS_DIR]:
             Path(dir_path).mkdir(parents=True, exist_ok=True)
 
-        # Also ensure data directory for SQLite
-        db_path = self.DATABASE_URL.replace("sqlite:///", "")
-        if db_path.startswith("./"):
-            Path(db_path).parent.mkdir(parents=True, exist_ok=True)
+        # Also ensure data directory for SQLite (skip for PostgreSQL)
+        if self.DATABASE_URL.startswith("sqlite:///"):
+            db_path = self.DATABASE_URL.replace("sqlite:///", "")
+            if db_path.startswith("./"):
+                Path(db_path).parent.mkdir(parents=True, exist_ok=True)
+
+    @property
+    def use_cloud_storage(self) -> bool:
+        """Check if cloud storage (Supabase) is configured"""
+        return bool(self.SUPABASE_URL and self.SUPABASE_KEY)
 
 
 # Global settings instance
