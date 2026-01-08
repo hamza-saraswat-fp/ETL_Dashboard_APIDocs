@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Costbook ETL</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
+
+        .upload-zone {
+            transition: all 0.2s ease;
+        }
+        .upload-zone:hover {
+            border-color: #2eaadc;
+            background-color: #f7f7f5;
+        }
+        .upload-zone.dragover {
+            border-color: #2eaadc;
+            background-color: #e8f4f8;
+            transform: scale(1.01);
+        }
+
+        .progress-fill {
+            transition: width 0.5s ease;
+        }
+
+        .fade-in {
+            animation: fadeIn 0.3s ease;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .stage-line {
+            transition: background-color 0.3s ease;
+        }
+    </style>
+</head>
+<body class="bg-white text-[#37352f] min-h-screen">
+    <div class="max-w-3xl mx-auto px-6 py-8">
+
+        <!-- Header -->
+        <header class="flex items-center justify-between mb-12">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 bg-[#2eaadc] rounded flex items-center justify-center">
+                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                    </svg>
+                </div>
+                <span class="text-lg font-semibold">Costbook ETL</span>
+            </div>
+            <a href="/dashboard" class="text-sm text-[#787774] hover:text-[#37352f] flex items-center gap-1">
+                Admin Dashboard
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                </svg>
+            </a>
+        </header>
+
+        <!-- Upload Section -->
+        <section id="upload-section" class="mb-12 fade-in">
+            <div class="text-center mb-8">
+                <h1 class="text-3xl font-semibold mb-2">Transform Your Costbook</h1>
+                <p class="text-[#787774]">Upload an Excel or PDF file to extract and structure HVAC pricing data</p>
+            </div>
+
+            <!-- Upload Zone -->
+            <div id="upload-zone" class="upload-zone border-2 border-dashed border-[#e3e2e0] rounded-lg p-12 text-center cursor-pointer mb-6">
+                <input type="file" id="file-input" class="hidden" accept=".xlsx,.xls,.xlsb,.pdf">
+
+                <div id="upload-prompt">
+                    <div class="w-12 h-12 mx-auto mb-4 bg-[#f7f7f5] rounded-full flex items-center justify-center">
+                        <svg class="w-6 h-6 text-[#787774]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                        </svg>
+                    </div>
+                    <p class="text-[#37352f] mb-1">Drop your file here, or <span class="text-[#2eaadc]">browse</span></p>
+                    <p class="text-sm text-[#787774] mb-4">Supports Excel and PDF files</p>
+                    <div class="flex items-center justify-center gap-2 text-xs text-[#9b9a97]">
+                        <span class="px-2 py-1 bg-[#f7f7f5] rounded">.xlsx</span>
+                        <span class="px-2 py-1 bg-[#f7f7f5] rounded">.xls</span>
+                        <span class="px-2 py-1 bg-[#f7f7f5] rounded">.xlsb</span>
+                        <span class="px-2 py-1 bg-[#f7f7f5] rounded">.pdf</span>
+                    </div>
+                </div>
+
+                <div id="file-selected" class="hidden">
+                    <div class="w-12 h-12 mx-auto mb-4 bg-[#e8f4f8] rounded-full flex items-center justify-center">
+                        <svg class="w-6 h-6 text-[#2eaadc]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                    </div>
+                    <p id="file-name" class="text-[#37352f] font-medium mb-1"></p>
+                    <p id="file-size" class="text-sm text-[#787774]"></p>
+                    <button id="clear-file" class="mt-3 text-sm text-[#eb5757] hover:underline">Remove</button>
+                </div>
+            </div>
+
+            <!-- Options -->
+            <div class="flex items-center gap-4 mb-6">
+                <label class="text-sm text-[#787774]">Costbook Title</label>
+                <input type="text" id="costbook-title" value="WinSupply"
+                    class="flex-1 max-w-xs px-3 py-2 border border-[#e3e2e0] rounded text-sm focus:outline-none focus:border-[#2eaadc]">
+            </div>
+
+            <!-- Submit Button -->
+            <button id="submit-btn" disabled
+                class="w-full py-3 bg-[#2eaadc] text-white font-medium rounded hover:bg-[#2596be] disabled:bg-[#e3e2e0] disabled:text-[#9b9a97] disabled:cursor-not-allowed transition-colors">
+                Start Processing
+            </button>
+        </section>
+
+        <!-- Progress Section (hidden by default) -->
+        <section id="progress-section" class="hidden mb-12 fade-in">
+            <div class="text-center mb-8">
+                <h2 class="text-2xl font-semibold mb-2">Processing</h2>
+                <p id="progress-filename" class="text-[#787774]"></p>
+            </div>
+
+            <!-- Stage Progress -->
+            <div class="bg-[#f7f7f5] rounded-lg p-6 mb-6">
+                <div class="flex items-center justify-between mb-6">
+                    <!-- Stage 1 -->
+                    <div class="flex flex-col items-center">
+                        <div id="stage1-dot" class="w-10 h-10 rounded-full bg-[#e3e2e0] flex items-center justify-center mb-2 transition-colors">
+                            <span class="text-sm font-medium text-[#787774]">1</span>
+                        </div>
+                        <span class="text-xs text-[#787774]">Extract</span>
+                    </div>
+                    <div id="line1" class="stage-line flex-1 h-0.5 bg-[#e3e2e0] mx-3"></div>
+                    <!-- Stage 2 -->
+                    <div class="flex flex-col items-center">
+                        <div id="stage2-dot" class="w-10 h-10 rounded-full bg-[#e3e2e0] flex items-center justify-center mb-2 transition-colors">
+                            <span class="text-sm font-medium text-[#787774]">2</span>
+                        </div>
+                        <span class="text-xs text-[#787774]">Transform</span>
+                    </div>
+                    <div id="line2" class="stage-line flex-1 h-0.5 bg-[#e3e2e0] mx-3"></div>
+                    <!-- Stage 3 -->
+                    <div class="flex flex-col items-center">
+                        <div id="stage3-dot" class="w-10 h-10 rounded-full bg-[#e3e2e0] flex items-center justify-center mb-2 transition-colors">
+                            <span class="text-sm font-medium text-[#787774]">3</span>
+                        </div>
+                        <span class="text-xs text-[#787774]">Generate</span>
+                    </div>
+                </div>
+
+                <!-- Progress Bar -->
+                <div class="mb-2">
+                    <div class="h-1.5 bg-[#e3e2e0] rounded-full overflow-hidden">
+                        <div id="progress-bar" class="progress-fill h-full bg-[#2eaadc] rounded-full" style="width: 0%"></div>
+                    </div>
+                </div>
+                <div class="flex justify-between text-sm">
+                    <span id="progress-message" class="text-[#787774]">Starting...</span>
+                    <span id="progress-percent" class="text-[#37352f] font-medium">0%</span>
+                </div>
+            </div>
+
+            <button id="cancel-btn" class="w-full py-3 border border-[#e3e2e0] text-[#787774] rounded hover:bg-[#f7f7f5] transition-colors">
+                Cancel
+            </button>
+        </section>
+
+        <!-- Complete Section (hidden by default) -->
+        <section id="complete-section" class="hidden mb-12 fade-in">
+            <div class="text-center mb-8">
+                <div class="w-16 h-16 mx-auto mb-4 bg-[#dbf9e8] rounded-full flex items-center justify-center">
+                    <svg class="w-8 h-8 text-[#0f7b3c]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                    </svg>
+                </div>
+                <h2 class="text-2xl font-semibold mb-2">Complete!</h2>
+                <p class="text-[#787774]">Your costbook has been generated</p>
+            </div>
+
+            <!-- Stats -->
+            <div class="grid grid-cols-3 gap-4 mb-6">
+                <div class="bg-[#f7f7f5] rounded-lg p-4 text-center">
+                    <p id="stat-systems" class="text-2xl font-semibold text-[#37352f]">-</p>
+                    <p class="text-xs text-[#787774]">Systems</p>
+                </div>
+                <div class="bg-[#f7f7f5] rounded-lg p-4 text-center">
+                    <p id="stat-rows" class="text-2xl font-semibold text-[#37352f]">-</p>
+                    <p class="text-xs text-[#787774]">Rows</p>
+                </div>
+                <div class="bg-[#f7f7f5] rounded-lg p-4 text-center">
+                    <p id="stat-time" class="text-2xl font-semibold text-[#37352f]">-</p>
+                    <p class="text-xs text-[#787774]">Duration</p>
+                </div>
+            </div>
+
+            <a id="download-btn" href="#" class="block w-full py-3 bg-[#0f7b3c] text-white font-medium rounded text-center hover:bg-[#0d6b34] transition-colors mb-3">
+                Download Costbook
+            </a>
+            <button id="new-upload-btn" class="w-full py-3 border border-[#e3e2e0] text-[#787774] rounded hover:bg-[#f7f7f5] transition-colors">
+                Process Another File
+            </button>
+        </section>
+
+        <!-- Error Section (hidden by default) -->
+        <section id="error-section" class="hidden mb-12 fade-in">
+            <div class="text-center mb-6">
+                <div class="w-16 h-16 mx-auto mb-4 bg-[#fde8e8] rounded-full flex items-center justify-center">
+                    <svg class="w-8 h-8 text-[#eb5757]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </div>
+                <h2 class="text-2xl font-semibold mb-2">Processing Failed</h2>
+                <p id="error-message" class="text-[#787774]">An error occurred</p>
+            </div>
+
+            <div class="bg-[#fde8e8] border border-[#f5c6c6] rounded-lg p-4 mb-6">
+                <pre id="error-details" class="text-sm text-[#eb5757] whitespace-pre-wrap overflow-auto max-h-40"></pre>
+            </div>
+
+            <button id="retry-btn" class="w-full py-3 bg-[#eb5757] text-white font-medium rounded hover:bg-[#d94444] transition-colors">
+                Try Again
+            </button>
+        </section>
+
+        <!-- Job History -->
+        <section class="border-t border-[#e3e2e0] pt-8">
+            <h3 class="text-lg font-semibold mb-4">Recent Jobs</h3>
+
+            <div id="jobs-list" class="space-y-2">
+                {% if jobs %}
+                    {% for job in jobs %}
+                    <div class="flex items-center justify-between p-3 bg-[#f7f7f5] rounded-lg">
+                        <div class="flex items-center gap-3">
+                            <!-- Status Icon -->
+                            {% if job.status.value == 'completed' %}
+                            <div class="w-6 h-6 bg-[#dbf9e8] rounded-full flex items-center justify-center">
+                                <svg class="w-4 h-4 text-[#0f7b3c]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                                </svg>
+                            </div>
+                            {% elif job.status.value == 'failed' %}
+                            <div class="w-6 h-6 bg-[#fde8e8] rounded-full flex items-center justify-center">
+                                <svg class="w-4 h-4 text-[#eb5757]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                </svg>
+                            </div>
+                            {% else %}
+                            <div class="w-6 h-6 bg-[#e8f4f8] rounded-full flex items-center justify-center">
+                                <svg class="w-4 h-4 text-[#2eaadc] animate-spin" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                                </svg>
+                            </div>
+                            {% endif %}
+
+                            <div>
+                                <p class="text-sm font-medium text-[#37352f]">{{ job.input_filename }}</p>
+                                <p class="text-xs text-[#787774]">{{ job.created_at.strftime('%b %d, %H:%M') if job.created_at else '' }}</p>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center gap-2">
+                            {% if job.status.value == 'completed' %}
+                            <a href="/api/v1/jobs/{{ job.id }}/download" class="p-2 text-[#787774] hover:text-[#2eaadc] hover:bg-white rounded transition-colors" title="Download">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                                </svg>
+                            </a>
+                            {% endif %}
+                            <a href="/dashboard/jobs/{{ job.id }}" class="p-2 text-[#787774] hover:text-[#2eaadc] hover:bg-white rounded transition-colors" title="View Details">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                                </svg>
+                            </a>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="text-center py-8 text-[#787774]">
+                        <p>No jobs yet. Upload a file to get started.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </section>
+
+    </div>
+
+    <script>
+        // State
+        let currentJobId = null;
+        let pollInterval = null;
+        let selectedFile = null;
+
+        // Elements
+        const uploadSection = document.getElementById('upload-section');
+        const progressSection = document.getElementById('progress-section');
+        const completeSection = document.getElementById('complete-section');
+        const errorSection = document.getElementById('error-section');
+        const uploadZone = document.getElementById('upload-zone');
+        const fileInput = document.getElementById('file-input');
+        const submitBtn = document.getElementById('submit-btn');
+        const uploadPrompt = document.getElementById('upload-prompt');
+        const fileSelected = document.getElementById('file-selected');
+
+        // File upload handling
+        uploadZone.addEventListener('click', () => fileInput.click());
+
+        uploadZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadZone.classList.add('dragover');
+        });
+
+        uploadZone.addEventListener('dragleave', () => {
+            uploadZone.classList.remove('dragover');
+        });
+
+        uploadZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadZone.classList.remove('dragover');
+            if (e.dataTransfer.files.length > 0) {
+                handleFile(e.dataTransfer.files[0]);
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFile(e.target.files[0]);
+            }
+        });
+
+        document.getElementById('clear-file').addEventListener('click', (e) => {
+            e.stopPropagation();
+            clearFile();
+        });
+
+        function handleFile(file) {
+            const validTypes = ['.xlsx', '.xls', '.xlsb', '.pdf'];
+            const ext = '.' + file.name.split('.').pop().toLowerCase();
+
+            if (!validTypes.includes(ext)) {
+                alert('Please select an Excel or PDF file');
+                return;
+            }
+
+            selectedFile = file;
+            document.getElementById('file-name').textContent = file.name;
+            document.getElementById('file-size').textContent = formatFileSize(file.size);
+            uploadPrompt.classList.add('hidden');
+            fileSelected.classList.remove('hidden');
+            submitBtn.disabled = false;
+        }
+
+        function clearFile() {
+            selectedFile = null;
+            fileInput.value = '';
+            uploadPrompt.classList.remove('hidden');
+            fileSelected.classList.add('hidden');
+            submitBtn.disabled = true;
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / 1048576).toFixed(1) + ' MB';
+        }
+
+        // Submit
+        submitBtn.addEventListener('click', async () => {
+            if (!selectedFile) return;
+
+            const formData = new FormData();
+            formData.append('file', selectedFile);
+            formData.append('costbook_title', document.getElementById('costbook-title').value);
+
+            try {
+                const response = await fetch('/api/v1/jobs', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) throw new Error('Upload failed');
+
+                const data = await response.json();
+                currentJobId = data.job_id;
+
+                showProgress();
+                startPolling();
+            } catch (error) {
+                showError('Failed to upload file', error.message);
+            }
+        });
+
+        function showProgress() {
+            uploadSection.classList.add('hidden');
+            progressSection.classList.remove('hidden');
+            document.getElementById('progress-filename').textContent = selectedFile.name;
+        }
+
+        function startPolling() {
+            pollInterval = setInterval(async () => {
+                try {
+                    const response = await fetch(`/api/v1/jobs/${currentJobId}`);
+                    const job = await response.json();
+                    updateProgress(job);
+                } catch (error) {
+                    console.error('Polling error:', error);
+                }
+            }, 1000);
+        }
+
+        function updateProgress(job) {
+            const percent = job.progress_percent || 0;
+            const message = job.progress_message || 'Processing...';
+            const status = job.status;
+
+            document.getElementById('progress-bar').style.width = percent + '%';
+            document.getElementById('progress-percent').textContent = percent + '%';
+            document.getElementById('progress-message').textContent = message;
+
+            // Update stage indicators
+            updateStage('stage1', status, ['stage1', 'stage2', 'stage3', 'completed']);
+            updateStage('stage2', status, ['stage2', 'stage3', 'completed']);
+            updateStage('stage3', status, ['stage3', 'completed']);
+
+            // Update connecting lines
+            if (['stage2', 'stage3', 'completed'].includes(status)) {
+                document.getElementById('line1').classList.remove('bg-[#e3e2e0]');
+                document.getElementById('line1').classList.add('bg-[#2eaadc]');
+            }
+            if (['stage3', 'completed'].includes(status)) {
+                document.getElementById('line2').classList.remove('bg-[#e3e2e0]');
+                document.getElementById('line2').classList.add('bg-[#2eaadc]');
+            }
+
+            if (status === 'completed') {
+                clearInterval(pollInterval);
+                showComplete(job);
+            } else if (status === 'failed') {
+                clearInterval(pollInterval);
+                showError(job.error_message || 'Processing failed', job.error_traceback);
+            }
+        }
+
+        function updateStage(stageId, currentStatus, activeStatuses) {
+            const dot = document.getElementById(stageId + '-dot');
+            const stageNum = stageId.replace('stage', '');
+
+            if (currentStatus === stageId) {
+                // Active stage
+                dot.classList.remove('bg-[#e3e2e0]', 'bg-[#0f7b3c]');
+                dot.classList.add('bg-[#2eaadc]');
+                dot.innerHTML = `<svg class="w-5 h-5 text-white animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                </svg>`;
+            } else if (activeStatuses.indexOf(currentStatus) > activeStatuses.indexOf(stageId) || currentStatus === 'completed') {
+                // Completed stage
+                dot.classList.remove('bg-[#e3e2e0]', 'bg-[#2eaadc]');
+                dot.classList.add('bg-[#0f7b3c]');
+                dot.innerHTML = `<svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                </svg>`;
+            }
+        }
+
+        function showComplete(job) {
+            progressSection.classList.add('hidden');
+            completeSection.classList.remove('hidden');
+
+            let stats = {};
+            try {
+                stats = job.stats_json ? JSON.parse(job.stats_json) : {};
+            } catch (e) {}
+
+            document.getElementById('stat-systems').textContent = job.systems_count || stats.systems_count || '-';
+            document.getElementById('stat-rows').textContent = stats.total_rows || '-';
+
+            if (job.started_at && job.completed_at) {
+                const start = new Date(job.started_at);
+                const end = new Date(job.completed_at);
+                const durationSec = Math.round((end - start) / 1000);
+                document.getElementById('stat-time').textContent = durationSec < 60 ? durationSec + 's' : Math.round(durationSec / 60) + 'm';
+            }
+
+            document.getElementById('download-btn').href = `/api/v1/jobs/${currentJobId}/download`;
+        }
+
+        function showError(message, details) {
+            progressSection.classList.add('hidden');
+            uploadSection.classList.add('hidden');
+            errorSection.classList.remove('hidden');
+            document.getElementById('error-message').textContent = message;
+            document.getElementById('error-details').textContent = details || '';
+        }
+
+        // Cancel
+        document.getElementById('cancel-btn').addEventListener('click', () => {
+            if (pollInterval) clearInterval(pollInterval);
+            resetUI();
+        });
+
+        // New upload / Retry
+        document.getElementById('new-upload-btn').addEventListener('click', resetUI);
+        document.getElementById('retry-btn').addEventListener('click', resetUI);
+
+        function resetUI() {
+            currentJobId = null;
+            selectedFile = null;
+            fileInput.value = '';
+
+            uploadPrompt.classList.remove('hidden');
+            fileSelected.classList.add('hidden');
+            submitBtn.disabled = true;
+
+            document.getElementById('progress-bar').style.width = '0%';
+
+            // Reset stages
+            ['stage1-dot', 'stage2-dot', 'stage3-dot'].forEach((id, i) => {
+                const dot = document.getElementById(id);
+                dot.classList.remove('bg-[#2eaadc]', 'bg-[#0f7b3c]');
+                dot.classList.add('bg-[#e3e2e0]');
+                dot.innerHTML = `<span class="text-sm font-medium text-[#787774]">${i + 1}</span>`;
+            });
+
+            // Reset lines
+            document.getElementById('line1').classList.remove('bg-[#2eaadc]');
+            document.getElementById('line1').classList.add('bg-[#e3e2e0]');
+            document.getElementById('line2').classList.remove('bg-[#2eaadc]');
+            document.getElementById('line2').classList.add('bg-[#e3e2e0]');
+
+            uploadSection.classList.remove('hidden');
+            progressSection.classList.add('hidden');
+            completeSection.classList.add('hidden');
+            errorSection.classList.add('hidden');
+        }
+    </script>
+</body>
+</html>

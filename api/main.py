@@ -13,7 +13,7 @@ import logging
 
 from .config import settings
 from .database.connection import init_db
-from .routes import jobs, health, results, dashboard
+from .routes import jobs, health, results, dashboard, app
 from .services.langwatch_service import init_langwatch
 
 
@@ -150,11 +150,12 @@ async def lifespan(app: FastAPI):
     else:
         logger.info("LangWatch not configured (set LANGWATCH_API_KEY to enable)")
 
-    # Initialize templates for dashboard
+    # Initialize templates for dashboard and app
     templates_dir = Path(__file__).parent / "templates"
     if templates_dir.exists():
         templates = Jinja2Templates(directory=str(templates_dir))
         dashboard.templates = templates
+        app.templates = templates
         logger.info(f"Templates loaded from {templates_dir}")
     else:
         logger.warning(f"Templates directory not found: {templates_dir}")
@@ -189,6 +190,10 @@ app.include_router(health.router, prefix="/api/v1", tags=["Health"])
 app.include_router(jobs.router, prefix="/api/v1", tags=["Jobs"])
 app.include_router(results.router, prefix="/api/v1", tags=["Results"])
 app.include_router(dashboard.router, prefix="/dashboard", tags=["Dashboard"])
+
+# Import app router with alias to avoid name conflict
+from .routes import app as app_routes
+app.include_router(app_routes.router, prefix="/app", tags=["App"])
 
 # Mount static files for dashboard
 static_dir = Path(__file__).parent / "static"
